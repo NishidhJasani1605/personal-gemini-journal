@@ -109,6 +109,30 @@ function runUnitTests() {
   assert(Boolean(modePrompts.future_self), 'Future Self (5-Year) persona is configured');
   assert(modePrompts.future_self.includes('5 years in the future'), 'Future Self persona embeds 5-year perspective');
 
+  // ---------------- Test 6: Voice Dictation & Multi-turn Message Structure ----------------
+  console.log('\n--- Suite 6: Voice Dictation & Multi-turn Dialogue Structure ---');
+  const sampleEntry: JournalEntry = {
+    id: 'entry-voice-123',
+    userId: 'user-456',
+    title: 'Voice-Dictated Morning Thoughts',
+    content: 'Dictated paragraph one. Dictated paragraph two.',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    tags: ['#morning', '#clarity'],
+    messages: [
+      { id: 'msg-u-1', role: 'user', text: 'How can I stay calm today?', timestamp: Date.now() },
+      { id: 'msg-m-1', role: 'model', text: 'Ground yourself in what you control.', timestamp: Date.now() + 500 },
+    ],
+  };
+
+  assert(sampleEntry.messages?.length === 2, 'Multi-turn messages preserve dialogue turns');
+  assert(sampleEntry.messages?.[0].role === 'user', 'User message turn is tagged as role "user"');
+  assert(sampleEntry.messages?.[1].role === 'model', 'Gemini message turn is tagged as role "model"');
+  assert(sampleEntry.content.includes('Dictated paragraph'), 'Voice-dictated content is captured');
+
+  const sanitizedEntry = stripUndefined(sampleEntry);
+  assert(sanitizedEntry.id === 'entry-voice-123', 'Entry remains valid after undefined-stripping');
+
   // ---------------- Summary ----------------
   console.log('\n=========================================');
   console.log(`📊 Test Results: ${passed} Passed, ${failed} Failed`);

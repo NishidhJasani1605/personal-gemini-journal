@@ -21,7 +21,14 @@ function getGenAI(): GoogleGenAI {
     if (!apiKey) {
       console.warn('GEMINI_API_KEY environment variable is not set. AI features will fallback gracefully.');
     }
-    aiClient = new GoogleGenAI({ apiKey: apiKey || '' });
+    aiClient = new GoogleGenAI({
+      apiKey: apiKey || '',
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
   }
   return aiClient;
 }
@@ -31,7 +38,6 @@ const MODEL_FALLBACK_LADDER = [
   'gemini-3.6-flash',
   'gemini-3.1-flash-lite',
   'gemini-flash-latest',
-  'gemini-3.7-flash',
 ];
 
 interface FallbackResult {
@@ -40,7 +46,7 @@ interface FallbackResult {
 }
 
 /**
- * Executes content generation with automatic model fallback ladder upon transient or availability errors.
+ * Executes content generation with automatic model fallback ladder upon transient, rate limit (429), or availability (503) errors.
  */
 async function generateContentWithFallback(
   contents: any,
@@ -74,9 +80,9 @@ async function generateContentWithFallback(
         modelUsed: modelName,
       };
     } catch (err: any) {
-      console.warn(`[Gemini] Model ${modelName} failed:`, err?.message || err);
+      console.warn(`[Gemini] Model ${modelName} encountered an error (${err?.status || err?.message || 'Exception'}). Silently falling back to next model...`);
       lastError = err;
-      // Continue to next model in the fallback ladder
+      // Immediately proceed to the next fallback model in the ladder without throwing
     }
   }
 
@@ -254,10 +260,15 @@ ${content}
 ${conversationContext || '(No additional dialogue)'}
 
 Task:
-Analyze this personal journal entry and reflection dialogue. Extract 2 to 5 SMART (Specific, Measurable, Achievable, Relevant, Time-bound) goals or actionable commitments that the user explicitly articulated or implicitly needs.
-For each goal, provide a crisp title, a standard category (e.g. "Career", "Mindset", "Health", "Habits", "Relationships"), a realistic deadline or timeframe suggestion (e.g., "Within 3 days", "This Sunday", "Next 2 weeks"), and optional brief notes.`;
+Analyze this personal journal entry and reflection dialogue. Extract 2 to 5 SMART (Specific, Measurable, Achievable, Relevant, Time-bound) goals, action items, or commitments that the user explicitly articulated, planned, or completed.
+CRITICAL COMPLETION STATUS DETECTION:
+- Examine the user's explicit words and verbal dictations carefully.
+- If the user explicitly or verbally mentions that a task, test, goal, or milestone is already done, finished, completed, or accomplished (e.g. phrases like "testing is done properly", "I finished", "I completed", "done", "accomplished", "I have done it", "fixed"), you MUST mark "completed": true.
+- If the goal is an upcoming commitment, future target, or pending task, mark "completed": false.
 
-    const systemInstruction = `You are an elite executive productivity and cognitive coach specializing in SMART goal formulation from unstructured personal reflections.`;
+For each goal, provide a crisp title, a standard category (e.g. "Career", "Mindset", "Health", "Habits", "Relationships", "Productivity"), a realistic deadline or timeframe suggestion (e.g., "Within 3 days", "This Sunday", "Completed", "Next 2 weeks"), whether it is already completed, and optional brief notes.`;
+
+    const systemInstruction = `You are an elite executive productivity and cognitive coach specializing in SMART goal formulation and completion detection from unstructured personal reflections.`;
 
     const jsonSchema = {
       type: 'object',
@@ -267,13 +278,13 @@ For each goal, provide a crisp title, a standard category (e.g. "Career", "Minds
           items: {
             type: 'object',
             properties: {
-              id: { type: 'string', description: 'Unique slug or id like goal-1' },
               title: { type: 'string', description: 'Clear, actionable, SMART-formatted goal statement' },
-              category: { type: 'string', description: 'Category such as Mindset, Career, Health, Habits, Relationships' },
-              deadline: { type: 'string', description: 'Suggested timeframe or deadline' },
+              category: { type: 'string', description: 'Category such as Mindset, Career, Health, Habits, Relationships, Productivity' },
+              deadline: { type: 'string', description: 'Suggested timeframe or deadline (e.g. Completed, This week, In 2 days)' },
+              completed: { type: 'boolean', description: 'True if the user stated in the journal or verbally that this goal/task has already been done or completed. False if pending.' },
               notes: { type: 'string', description: 'Brief rationale or execution tip' },
             },
-            required: ['title', 'category'],
+            required: ['title', 'category', 'completed'],
           },
         },
       },
@@ -293,13 +304,14 @@ For each goal, provide a crisp title, a standard category (e.g. "Career", "Minds
       parsed = { goals: [] };
     }
 
+    const uniqueBase = `goal-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const formattedGoals = (parsed.goals || []).map((g: any, idx: number) => ({
-      id: g.id || `goal-${Date.now()}-${idx}`,
+      id: `${uniqueBase}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
       title: g.title || 'Action item',
       category: g.category || 'Mindset',
-      deadline: g.deadline || 'This week',
+      deadline: g.deadline || (g.completed ? 'Completed' : 'This week'),
       notes: g.notes || '',
-      completed: false,
+      completed: Boolean(g.completed),
     }));
 
     res.json({

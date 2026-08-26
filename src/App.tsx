@@ -36,13 +36,13 @@ export default function App() {
       onRetry?: () => void
     ) => {
       const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      setToasts((prev) => [...prev, { id, type, title, message, onRetry }]);
+      setToasts((prev) => [...prev.slice(-2), { id, type, title, message, onRetry }]);
 
-      // Auto dismiss after 5 seconds if no retry callback
+      // Auto dismiss after 3.5 seconds if no retry callback
       if (!onRetry) {
         setTimeout(() => {
           setToasts((prev) => prev.filter((t) => t.id !== id));
-        }, 5000);
+        }, 3500);
       }
     },
     []
@@ -127,7 +127,7 @@ export default function App() {
     setIsSaving(true);
     try {
       await saveJournalEntry(currentUser.uid, entryToSave);
-      setActiveEntry(entryToSave);
+      setActiveEntry((prev) => (prev?.id === entryToSave.id ? entryToSave : prev));
     } catch (err: any) {
       console.error('Save entry failed:', err);
       throw err;

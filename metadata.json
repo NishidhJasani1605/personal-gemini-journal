@@ -1,6 +1,6 @@
 {
-  "name": "AI Journal & Reflections",
-  "description": "User-authenticated personal journaling and AI reflection assistant powered by Gemini and Cloud Firestore.",
-  "requestFramePermissions": [],
+  "name": "ReflectAI - Personal Journal & AI Reflections",
+  "description": "User-authenticated personal journaling, voice dictation, SMART goal extractor, Future Self persona, semantic search, and AI reflection assistant powered by Gemini and Cloud Firestore.",
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

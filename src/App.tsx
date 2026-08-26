@@ -13,6 +13,7 @@ import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { JournalEditor } from './components/JournalEditor';
 import { SynthesisModal } from './components/SynthesisModal';
+import { MoodDashboardModal } from './components/MoodDashboardModal';
 import { ToastContainer, type ToastMessage } from './components/Toast';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSynthesisOpen, setIsSynthesisOpen] = useState(false);
+  const [isMoodDashboardOpen, setIsMoodDashboardOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // Toast helper
@@ -81,6 +83,8 @@ export default function App() {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       tags: [],
+      moodCategory: 'neutral',
+      smartGoals: [],
       messages: [],
     };
   };
@@ -202,6 +206,7 @@ export default function App() {
         totalEntries={entries.length}
         onNewEntry={handleNewEntry}
         onOpenSynthesis={() => setIsSynthesisOpen(true)}
+        onOpenMoodAnalytics={() => setIsMoodDashboardOpen(true)}
         onSignOut={async () => {
           await logOut();
           addToast('info', 'Signed Out', 'You have been safely signed out.');
@@ -212,7 +217,7 @@ export default function App() {
 
       {/* Main Workspace Layout */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Sidebar with Journal History */}
+        {/* Sidebar with Journal History & Semantic Search */}
         <Sidebar
           entries={entries}
           activeEntryId={activeEntry?.id || null}
@@ -244,6 +249,14 @@ export default function App() {
           entries={entries}
           onClose={() => setIsSynthesisOpen(false)}
           onShowToast={addToast}
+        />
+      )}
+
+      {/* Mood Dashboard & Emotional Trajectory Modal */}
+      {isMoodDashboardOpen && (
+        <MoodDashboardModal
+          entries={entries}
+          onClose={() => setIsMoodDashboardOpen(false)}
         />
       )}
 

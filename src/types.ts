@@ -5,7 +5,19 @@ export type ReflectionMode =
   | 'socratic'
   | 'stoic'
   | 'gratitude'
-  | 'action_planner';
+  | 'action_planner'
+  | 'future_self';
+
+export type MoodCategory = 'calm' | 'optimistic' | 'reflective' | 'determined' | 'neutral';
+
+export interface SmartGoal {
+  id: string;
+  title: string;
+  category: string;
+  deadline?: string;
+  completed: boolean;
+  notes?: string;
+}
 
 export interface ChatMessage {
   id: string;
@@ -23,8 +35,10 @@ export interface JournalEntry {
   updatedAt: number;
   tags: string[];
   mood?: string;
+  moodCategory?: MoodCategory;
   summary?: string;
   actionableInsights?: string[];
+  smartGoals?: SmartGoal[];
   messages: ChatMessage[];
   lastModelUsed?: string;
 }
@@ -41,7 +55,9 @@ export interface AIResponsePayload {
   summary?: string;
   suggestedTags?: string[];
   detectedMood?: string;
+  moodCategory?: MoodCategory;
   actionableInsights?: string[];
+  extractedGoals?: SmartGoal[];
   modelUsed: string;
 }
 
@@ -51,4 +67,22 @@ export interface SynthesisResult {
   keyTakeaways: string[];
   recommendedFocus: string;
   modelUsed: string;
+}
+
+export interface SemanticSearchResult {
+  entryId: string;
+  title: string;
+  relevanceScore: number;
+  explanation: string;
+  matchingQuote?: string;
+  date: number;
+  mood?: string;
+}
+
+export interface MoodDistribution {
+  category: MoodCategory;
+  label: string;
+  count: number;
+  percentage: number;
+  color: string;
 }

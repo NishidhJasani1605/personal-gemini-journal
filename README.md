@@ -1,24 +1,49 @@
-# AI Journal & Reflections (ReflectAI)
+# ReflectAI — Personal Journal & AI Reflection Studio
 
-A user-authenticated web application for personal journaling and multi-turn AI reflections powered by **Gemini 3.6 Flash**, **Firebase Authentication**, and **Cloud Firestore**.
+A production-grade, user-authenticated journaling web application featuring multi-turn AI reflections, hands-free voice dictation, speech synthesis, automatic SMART goal extraction, a "Future Self (5-Year)" mentor persona, natural language semantic search, and an emotional mood analytics dashboard.
+
+Built with **Gemini 3.7 Flash & 3.6 Flash**, **Firebase Authentication (Google Identity)**, **Cloud Firestore (Hardened Owner-Bound Rules)**, **React 19**, **Tailwind CSS**, and **Express**.
+
+---
+
+## 🌟 Advanced Features Overview
+
+1. **🎙️ Hands-Free Voice Dictation & Text-to-Speech (TTS)**:
+   - **Real-Time Dictation**: Integrated Web Speech Recognition (`webkitSpeechRecognition` / `SpeechRecognition`) directly into the journal editor for seamless hands-free thought recording.
+   - **AI Audio Output**: Web Speech Synthesis allows users to listen to Gemini's reflections, advice, and summaries spoken back aloud with play/pause and stop controls.
+
+2. **🎯 SMART Goal Checklist Extractor**:
+   - **Automated Extraction**: Gemini analyzes journal entries to identify actionable Specific, Measurable, Achievable, Relevant, and Time-bound (SMART) commitments.
+   - **Interactive Management**: Users can track goals, mark completion, view target deadlines, and see categorized badges (Career, Health, Relationships, Personal).
+
+3. **🔮 "Future Self (5-Year)" AI Persona**:
+   - **Perspective Mode**: Gemini embodies the user's wise, fulfilled self living 5 years in the future, providing compassionate, long-term retrospective guidance on current anxieties and challenges.
+
+4. **🔍 Natural Language Semantic Search**:
+   - **Conversational Queries**: Search reflections by asking conceptual questions (e.g., *"When did I feel stressed?"*, *"Moments of gratitude"*, *"Lessons from setbacks"*).
+   - **AI Relevance Scoring**: Highlights matching entries with relevance match percentages (`95% Match`), AI explanations of why they match, and direct extracted quote snippets.
+
+5. **📊 Dynamic AI Mood Themes & Trend Dashboard**:
+   - **Ambient Theme Accents**: Moods are classified into `calm`, `optimistic`, `reflective`, `determined`, and `neutral` categories, dynamically applying subtle color themes across the UI.
+   - **Visual Analytics**: Interactive timeline graphing emotional trajectories across reflections and distribution breakdowns.
 
 ---
 
 ## 🔒 Security Architecture & Threat Model
 
-| Threat Zone | Risk Scenario | Mitigation Implemented |
+| Threat Zone | Risk Scenario | Countermeasure Implemented |
 | :--- | :--- | :--- |
-| **Input Surfaces** | Malicious injection or malformed payload. | Strict parameter sanitization and null-safe request destructuring. |
+| **Input Surfaces** | Malicious injection or malformed payload. | Strict parameter sanitization, recursive `stripUndefined` payload hygiene, and null-safe request destructuring. |
 | **Planning & Reasoning** | Prompt injection/hijacking. | Server-side defensive framing separating user notes from system instructions. |
-| **Tool & API Execution** | API Key leakage or single point of model failure. | Server-side proxy (`/api/reflect`) with 4-tier model fallback ladder (`gemini-3.6-flash` &rarr; `gemini-3.1-flash-lite` &rarr; `gemini-flash-latest` &rarr; `gemini-3.7-flash`). |
-| **Memory & Storage** | Cross-tenant data leaks or unauthorized reads. | Owner-bound Firestore Security Rules matching `request.auth.uid == userId`. |
-| **Inter-System Auth** | Stolen credentials or password attacks. | Passwordless federated Google Sign-In via Firebase Auth. |
+| **Tool & API Execution** | API Key leakage or single point of model failure. | Server-side proxy (`/api/reflect`, `/api/extract-smart-goals`, `/api/semantic-search`) with 4-tier model fallback ladder (`gemini-3.6-flash` &rarr; `gemini-3.1-flash-lite` &rarr; `gemini-flash-latest` &rarr; `gemini-3.7-flash`). |
+| **Memory & Storage** | Cross-tenant data leaks or unauthorized reads. | Hardened Owner-bound Firestore Security Rules matching `request.auth.uid == userId`. |
+| **Inter-System Auth** | Stolen credentials or password attacks. | Passwordless federated Google Sign-In via Firebase Auth. No raw credentials stored. |
 
 ---
 
 ## 📁 Firestore Security Rules
 
-To ensure complete user data isolation, all journal entries and interaction records are stored under `/users/{userId}/...` and protected with:
+All journal entries and interactions are stored strictly under `/users/{userId}/...` and protected with owner-bound rules:
 
 ```javascript
 rules_version = '2';
@@ -67,7 +92,7 @@ gcloud secrets add-iam-policy-binding GEMINI_API_KEY \
 ### 1. Build and Deploy Service
 
 ```bash
-gcloud run deploy reflect-ai-journal \
+gcloud run deploy reflect-ai \
   --source . \
   --platform managed \
   --region us-central1 \
@@ -81,7 +106,7 @@ gcloud run deploy reflect-ai-journal \
 Register the service for automated challenge verification:
 
 ```bash
-gcloud run services update reflect-ai-journal \
+gcloud run services update reflect-ai \
   --update-labels=dev-tutorial=cloud-run-ai-challenge \
   --region=us-central1
 ```
@@ -90,40 +115,51 @@ gcloud run services update reflect-ai-journal \
 
 ## 🧪 Functional Walkthrough & Step-by-Step Test Guide
 
-### Test Case 1: Landing Page & Authentication
+### Test Case 1: Landing Page & Google Authentication
 1. Navigate to the application root.
 2. Verify the landing page displays feature guarantees, security assertions, and a "Sign In with Google" action.
 3. Click **"Sign In with Google"** and complete the federated Google Identity login.
-4. **Expected Result**: Successfully redirects to the user's private dashboard with an active draft and displays a welcome notification toast.
+4. **Expected Result**: Successfully redirects to the private dashboard with an active draft and displays a welcome notification toast.
 
-### Test Case 2: Writing a Journal Entry & Saving
-1. In the editor, enter a title (e.g., `Overcoming Imposter Syndrome`) and write a reflection in the main canvas.
-2. Add a mood tag (e.g., `Determined`) and enter hashtags (e.g., `#Growth`, `#Career`).
-3. Click the **"Save"** button in the header.
-4. **Expected Result**: The entry is persisted to `/users/{userId}/entries/{entryId}` in Firestore. The entry appears immediately in the left sidebar with timestamp, word count, and tags.
+### Test Case 2: Voice Dictation & Text-to-Speech
+1. In the Journal Editor, click the **"Dictate"** microphone button.
+2. Speak into the microphone: *"Today was challenging, but I learned how to prioritize high-impact goals."*
+3. Verify that spoken words transcribe live into the journal canvas.
+4. After generating an AI reflection, click the **"Listen"** (speaker) button next to the Gemini response.
+5. **Expected Result**: Speech synthesis reads Gemini's advice aloud with play/pause and stop controls.
 
-### Test Case 3: Generating Multi-Turn AI Reflections with Gemini 3.6 Flash
-1. Select an AI reflection mode from the toolbar (e.g., **Stoic**, **Socratic**, **Summary**, or **Brainstorm**).
-2. Click **"Reflect with Gemini 3.6 Flash"**.
-3. **Expected Result**:
-   - Backend calls `/api/reflect` with resilient model fallback.
-   - An executive summary card and actionable insights are generated.
-   - The reflection response is rendered with formatted markdown.
-   - The entry and AI response are automatically saved to Firestore.
+### Test Case 3: SMART Goal Extraction
+1. Write an entry containing commitments: *"I need to run 5k three times this week and submit the financial report by Friday afternoon."*
+2. Click the **"Extract SMART Goals"** button in the Goal Checklist panel.
+3. **Expected Result**: Gemini automatically identifies discrete goals with categories (Health, Career) and target deadlines. Toggle checkbox updates goal completion and saves to Firestore.
 
-### Test Case 4: Continuing Multi-Turn Conversation
-1. In the dialogue thread below the entry, type a follow-up query in the chat input (e.g., `How can I apply this during my team presentation tomorrow?`).
-2. Click the send icon.
-3. **Expected Result**: Gemini receives the full conversational context and responds contextually. Both user message and AI response are appended and persisted.
+### Test Case 4: Future Self (5-Year) Reflection Persona
+1. Select the **"Future Self (5-Yr)"** persona from the reflection mode selector.
+2. Click **"Reflect with Gemini"**.
+3. **Expected Result**: Gemini responds from the perspective of your future self in 5 years, providing reassuring, long-term wisdom and perspective.
 
-### Test Case 5: Multi-Entry Trend Synthesis
-1. Click the **"Multi-Entry Synthesis"** button in the top navigation bar.
-2. In the modal, click **"Run Synthesis Now"**.
-3. **Expected Result**: Gemini synthesizes insights across all user entries, presenting dominant life narratives, emotional trajectory, core takeaways, and a recommended weekly focus.
+### Test Case 5: Natural Language Semantic Search
+1. In the left sidebar, click the **"AI Search"** mode button.
+2. Type a conceptual query: *"When did I feel overwhelmed?"* or click one of the suggested chips.
+3. Press Enter or click **"Search"**.
+4. **Expected Result**: Displays ranked matching reflections with match percentages (`95% Match`), AI explanation for why it matches, and quoted snippets. Clicking any result opens the reflection.
 
-### Test Case 6: Search, Tag Filtering & Isolation
-1. Type a keyword or click a tag/mood filter pill in the sidebar.
-2. Confirm the entry list filters in real-time.
-3. Click **Sign Out** from the user profile dropdown.
-4. Sign in with a different account.
-5. **Expected Result**: The previous user's entries are completely isolated and inaccessible due to owner-bound Firestore security rules.
+### Test Case 6: Mood Analytics Dashboard
+1. In the top navigation bar, click the **"Mood Analytics"** button.
+2. **Expected Result**: Opens the emotional analytics modal displaying dominant emotional trajectories over time, mood distribution percentages, and reflection counts.
+
+### Test Case 7: Cross-User Data Isolation
+1. Write and save an entry.
+2. Sign out via the profile dropdown.
+3. Sign in with a secondary Google account.
+4. **Expected Result**: The dashboard initializes empty or with the second user's distinct records. Zero cross-user data leakage occurs due to Firestore owner-bound security rules.
+
+---
+
+## 🧪 Unit Testing
+
+Run the automated test suite verifying payload sanitization, SMART goal logic, fallback ladder sequence, and persona directives:
+
+```bash
+npm test
+```

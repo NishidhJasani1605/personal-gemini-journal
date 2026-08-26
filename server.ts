@@ -110,6 +110,7 @@ app.post('/api/reflect', async (req: Request, res: Response) => {
       stoic: 'Act as a modern Stoic mentor (in the vein of Marcus Aurelius and Epictetus). Help separate what is within control from what is not, focusing on virtue, resilience, and calm perspective.',
       gratitude: 'Act as a mindfulness and gratitude coach. Highlight subtle positives, moments of appreciation, and grounded silver linings in the user\'s narrative.',
       action_planner: 'Act as a pragmatic strategic planner. Break down the user\'s reflections into clear, prioritized, and low-friction next actionable steps.',
+      future_self: 'Act as the user\'s wise, compassionate, and fulfilled self from 5 years in the future. You have lived through this exact chapter of life, navigated these doubts and dilemmas, and emerged with profound clarity, resilience, and joy. Speak directly to your past self with deep warmth, perspective, emotional reassurance, and strategic foresight, advising them on what truly matters in the long arc of their life.',
     };
 
     const selectedModeInstruction = modePrompts[mode] || modePrompts.reflection;
@@ -175,7 +176,12 @@ ${entryContent || '(No content written yet)'}
         },
         detectedMood: {
           type: 'string',
-          description: 'A 1-2 word detected mood (e.g. "Reflective", "Optimistic", "Vulnerable", "Determined", "Grateful", "Overwhelmed").',
+          description: 'A 1-2 word detected mood (e.g. "Reflective", "Optimistic", "Vulnerable", "Determined", "Grateful", "Overwhelmed", "Calm", "Peaceful").',
+        },
+        moodCategory: {
+          type: 'string',
+          enum: ['calm', 'optimistic', 'reflective', 'determined', 'neutral'],
+          description: 'One of the 5 primary mood categories for UI theme accents.',
         },
         suggestedTags: {
           type: 'array',
@@ -188,7 +194,7 @@ ${entryContent || '(No content written yet)'}
           description: '2 to 3 concise, high-value actionable takeaways or self-reflection questions.',
         },
       },
-      required: ['reply', 'summary', 'detectedMood', 'suggestedTags'],
+      required: ['reply', 'summary', 'detectedMood', 'moodCategory', 'suggestedTags'],
     };
 
     const result = await generateContentWithFallback(
@@ -206,6 +212,7 @@ ${entryContent || '(No content written yet)'}
         reply: result.text,
         summary: title ? `Reflection on "${title}"` : 'Personal journal reflection',
         detectedMood: 'Thoughtful',
+        moodCategory: 'reflective',
         suggestedTags: ['#Journal', '#Reflection'],
         actionableInsights: ['Take a moment to pause and integrate these thoughts.'],
       };
@@ -219,6 +226,194 @@ ${entryContent || '(No content written yet)'}
     console.error('Error in /api/reflect:', error);
     res.status(500).json({
       error: 'Failed to generate reflection',
+      message: error?.message || 'Unknown internal server error',
+    });
+  }
+});
+
+// Automated SMART Goal Checklist Extractor
+app.post('/api/extract-smart-goals', async (req: Request, res: Response) => {
+  try {
+    const body = (req.body && typeof req.body === 'object') ? req.body : {};
+    const { title = '', content = '', messages = [] } = body;
+
+    if (!content.trim() && messages.length === 0) {
+      return res.status(400).json({ error: 'Entry content or dialogue is required to extract SMART goals.' });
+    }
+
+    const conversationContext = (messages || [])
+      .map((m: any) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
+      .join('\n');
+
+    const prompt = `--- Journal Entry ---
+Title: ${title || 'Untitled'}
+Content:
+${content}
+
+--- Dialogue Context ---
+${conversationContext || '(No additional dialogue)'}
+
+Task:
+Analyze this personal journal entry and reflection dialogue. Extract 2 to 5 SMART (Specific, Measurable, Achievable, Relevant, Time-bound) goals or actionable commitments that the user explicitly articulated or implicitly needs.
+For each goal, provide a crisp title, a standard category (e.g. "Career", "Mindset", "Health", "Habits", "Relationships"), a realistic deadline or timeframe suggestion (e.g., "Within 3 days", "This Sunday", "Next 2 weeks"), and optional brief notes.`;
+
+    const systemInstruction = `You are an elite executive productivity and cognitive coach specializing in SMART goal formulation from unstructured personal reflections.`;
+
+    const jsonSchema = {
+      type: 'object',
+      properties: {
+        goals: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'Unique slug or id like goal-1' },
+              title: { type: 'string', description: 'Clear, actionable, SMART-formatted goal statement' },
+              category: { type: 'string', description: 'Category such as Mindset, Career, Health, Habits, Relationships' },
+              deadline: { type: 'string', description: 'Suggested timeframe or deadline' },
+              notes: { type: 'string', description: 'Brief rationale or execution tip' },
+            },
+            required: ['title', 'category'],
+          },
+        },
+      },
+      required: ['goals'],
+    };
+
+    const result = await generateContentWithFallback(
+      prompt,
+      systemInstruction,
+      jsonSchema
+    );
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(result.text);
+    } catch {
+      parsed = { goals: [] };
+    }
+
+    const formattedGoals = (parsed.goals || []).map((g: any, idx: number) => ({
+      id: g.id || `goal-${Date.now()}-${idx}`,
+      title: g.title || 'Action item',
+      category: g.category || 'Mindset',
+      deadline: g.deadline || 'This week',
+      notes: g.notes || '',
+      completed: false,
+    }));
+
+    res.json({
+      goals: formattedGoals,
+      modelUsed: result.modelUsed,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/extract-smart-goals:', error);
+    res.status(500).json({
+      error: 'Failed to extract SMART goals',
+      message: error?.message || 'Unknown internal server error',
+    });
+  }
+});
+
+// Natural Language Semantic Search across Journal Entries
+app.post('/api/semantic-search', async (req: Request, res: Response) => {
+  try {
+    const body = (req.body && typeof req.body === 'object') ? req.body : {};
+    const { query = '', entries = [] } = body;
+
+    if (!query.trim()) {
+      return res.status(400).json({ error: 'Search query is required.' });
+    }
+
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return res.json({ results: [], query, message: 'No entries to search through.' });
+    }
+
+    // Format top 30 entries for semantic ranking
+    const corpus = entries.slice(0, 30).map((e: any, idx: number) => ({
+      index: idx,
+      id: e.id,
+      title: e.title || 'Untitled',
+      date: e.createdAt,
+      mood: e.mood || 'Unspecified',
+      tags: (e.tags || []).join(', '),
+      contentSnippet: (e.content || '').slice(0, 600),
+      summarySnippet: (e.summary || '').slice(0, 300),
+    }));
+
+    const prompt = `User Query: "${query}"
+
+Here is the catalog of the user's journal entries:
+${JSON.stringify(corpus, null, 2)}
+
+Task:
+Evaluate each journal entry against the semantic intent of the user's query (which may be a question like "When did I feel stressed about work?", "Moments of gratitude", "Lessons about failure", etc.).
+Return the top relevant matching entries (up to 8 entries), sorted by relevance score (1-100). For each match, provide:
+1. entryId: string ID of matching entry
+2. relevanceScore: integer between 1 and 100
+3. explanation: 1 sentence explaining why this entry matches the user's inquiry
+4. matchingQuote: a short direct quote excerpt from the content or summary illustrating the match`;
+
+    const systemInstruction = `You are a precision semantic retrieval and biographical search assistant. Your job is to accurately match conversational natural language inquiries with relevant personal journal entries based on emotions, topics, themes, and implicit context.`;
+
+    const jsonSchema = {
+      type: 'object',
+      properties: {
+        matches: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              entryId: { type: 'string' },
+              relevanceScore: { type: 'integer' },
+              explanation: { type: 'string' },
+              matchingQuote: { type: 'string' },
+            },
+            required: ['entryId', 'relevanceScore', 'explanation'],
+          },
+        },
+      },
+      required: ['matches'],
+    };
+
+    const result = await generateContentWithFallback(
+      prompt,
+      systemInstruction,
+      jsonSchema
+    );
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(result.text);
+    } catch {
+      parsed = { matches: [] };
+    }
+
+    // Join with entry metadata
+    const results = (parsed.matches || [])
+      .filter((m: any) => m.relevanceScore >= 30)
+      .map((m: any) => {
+        const matchingEntry = entries.find((e: any) => e.id === m.entryId);
+        return {
+          entryId: m.entryId,
+          title: matchingEntry?.title || 'Journal Entry',
+          relevanceScore: m.relevanceScore,
+          explanation: m.explanation,
+          matchingQuote: m.matchingQuote || matchingEntry?.summary || matchingEntry?.content?.slice(0, 150),
+          date: matchingEntry?.createdAt || Date.now(),
+          mood: matchingEntry?.mood,
+        };
+      });
+
+    res.json({
+      results,
+      query,
+      modelUsed: result.modelUsed,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/semantic-search:', error);
+    res.status(500).json({
+      error: 'Semantic search failed',
       message: error?.message || 'Unknown internal server error',
     });
   }

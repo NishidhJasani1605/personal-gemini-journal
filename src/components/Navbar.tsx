@@ -8,6 +8,7 @@ import {
   X,
   BookMarked,
   Shield,
+  TrendingUp,
 } from 'lucide-react';
 import type { UserProfile } from '../types';
 
@@ -16,6 +17,7 @@ interface NavbarProps {
   totalEntries: number;
   onNewEntry: () => void;
   onOpenSynthesis: () => void;
+  onOpenMoodAnalytics: () => void;
   onSignOut: () => void;
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
@@ -26,6 +28,7 @@ export function Navbar({
   totalEntries,
   onNewEntry,
   onOpenSynthesis,
+  onOpenMoodAnalytics,
   onSignOut,
   isSidebarOpen,
   onToggleSidebar,
@@ -63,14 +66,27 @@ export function Navbar({
           </div>
         </div>
 
-        {/* Center/Actions: New Entry & Deep Synthesis */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Center/Actions: Mood Trends, Synthesis & New Entry */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <button
+            type="button"
+            id="open-mood-analytics-btn"
+            onClick={onOpenMoodAnalytics}
+            disabled={totalEntries === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#23262B] bg-[#161920] hover:bg-[#1A1D23] hover:border-[#2D3139] text-[#D1D1D1] text-xs sm:text-sm font-medium transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            title="View Mood Trends & Analytics Dashboard"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden sm:inline">Mood</span>
+            <span>Analytics</span>
+          </button>
+
           <button
             type="button"
             id="open-synthesis-btn"
             onClick={onOpenSynthesis}
             disabled={totalEntries === 0}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-[#23262B] bg-[#161920] hover:bg-[#1A1D23] hover:border-[#2D3139] text-[#D1D1D1] text-xs sm:text-sm font-medium transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#23262B] bg-[#161920] hover:bg-[#1A1D23] hover:border-[#2D3139] text-[#D1D1D1] text-xs sm:text-sm font-medium transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title={totalEntries === 0 ? 'Create at least one entry to synthesize' : 'Synthesize insights across all entries'}
           >
             <BarChart3 className="w-3.5 h-3.5 text-[#C8AA6E]" />
